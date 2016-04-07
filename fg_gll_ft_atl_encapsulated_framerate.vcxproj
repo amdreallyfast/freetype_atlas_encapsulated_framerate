@@ -21,7 +21,7 @@
   <PropertyGroup Label="Globals">
     <ProjectGuid>{76BCB793-0241-443D-AD0F-C1B2F6C33F9B}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
-    <RootNamespace>freeglut_glload_render_freetype_atlas</RootNamespace>
+    <RootNamespace>fg_gll_ft_atl_encapsulated_framerate</RootNamespace>
     <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -88,7 +88,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>C:\Users\John\Documents\GitHub\OpenGL barebones\freeglut_glload_render_freetype\freetype-2.6.1\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\John\Documents\GitHub\OpenGL barebones\fg_gll_ft_atl_encapsulated_framerate\freetype-2.6.1\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

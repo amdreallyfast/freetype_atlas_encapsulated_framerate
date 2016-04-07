@@ -13,10 +13,10 @@
 
 FreeTypeEncapsulate::FreeTypeEncapsulate()
     :
+    _haveInitialized(0),
     _programId(0),
     _uniformTextSamplerLoc(0),
-    _uniformTextColorLoc(0),
-    _vbo(0)
+    _uniformTextColorLoc(0)
 {
 }
 
@@ -24,10 +24,10 @@ FreeTypeEncapsulate::~FreeTypeEncapsulate()
 {
     // cleanup
     glDeleteProgram(_programId);
-    glDeleteBuffers(1, &_vbo);
 }
 
-bool FreeTypeEncapsulate::Init(const std::string &vertShaderPath, const std::string &fragShaderPath)
+int FreeTypeEncapsulate::Init(const std::string &trueTypeFontFilePath, 
+    const std::string &vertShaderPath, const std::string &fragShaderPath)
 {
     // FreeType needs to load itself into particular variables
     // Note: FT_Init_FreeType(...) returns something called an FT_Error, which VS can't find.
@@ -40,10 +40,9 @@ bool FreeTypeEncapsulate::Init(const std::string &vertShaderPath, const std::str
     }
 
     // Note: FT_New_Face(...) also returns an FT_Error.
-    const char *fontFilePath = "FreeSans.ttf";  // file path relative to solution directory
-    if (FT_New_Face(_ftLib, fontFilePath, 0, &_ftFace))
+    if (FT_New_Face(_ftLib, trueTypeFontFilePath.c_str(), 0, &_ftFace))
     {
-        fprintf(stderr, "Could not open font '%s'\n", fontFilePath);
+        fprintf(stderr, "Could not open font '%s'\n", trueTypeFontFilePath);
         return false;
     }
 
@@ -68,18 +67,23 @@ bool FreeTypeEncapsulate::Init(const std::string &vertShaderPath, const std::str
         return false;
     }
 
-    // start up the font texture atlas now that the program is created and uniforms are recorded
-    gAtlasPtr = new atlas(gFtFace, 48);
+    _haveInitialized = true;
+    return _programId;
+}
 
-    // create the vertex buffer that will be used to create quads as a base for the FreeType 
-    // glyph textures
-    glGenBuffers(1, &gVbo);
-    if (gVbo == -1)
+const std::shared_ptr<FreeTypeAtlas> FreeTypeEncapsulate::GenerateAtlas(const int fontSize)
+{
+    if (!_haveInitialized)
     {
-        fprintf(stderr, "could not generate vertex buffer object\n");
+        fprintf(stderr, "FreeTypeEncapsulate object has not been initialized\n");
         return false;
     }
 
+    std::shared_ptr<FreeTypeAtlas> newAtlasPtr = std::make_shared<FreeTypeAtlas>(
+        _uniformTextSamplerLoc, _uniformTextColorLoc);
+    newAtlasPtr->Init(_ftFace, fontSize);
+
+    return newAtlasPtr;
 }
 
 /*-----------------------------------------------------------------------------------------------

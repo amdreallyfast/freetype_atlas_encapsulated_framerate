@@ -10,11 +10,19 @@ class FreeTypeAtlas
 {
 public:
     // the FT_Face type is a pointer, so don't use a reference or pointer
-    FreeTypeAtlas(const FT_Face face, const int height);
+    FreeTypeAtlas(const int uniformTextSamplerLoc, const int uniformTextColorLoc);
+
+    bool Init(const FT_Face face, const int fontPixelHeightSize);
 
     ~FreeTypeAtlas();
 
-    void RenderChar(const char c, const float x, const float y, const float userScaleX, const float userScaleY);
+    // position is in screen coordinates of the OpenGL display, which on the range 
+    // [-0.999f, +0.999f], and note that the range is technically [-1,+1] but in practice an X
+    // of -1 will not render
+
+    //TODO: change to pos[2], userScale[2], color[3]; also change color's glUniform4fv(...) to glUniform3fv(...) to match; also change uniform value and use in shader to match float[3]
+    void RenderChar(const char c, const float x, const float y, const float userScaleX, 
+        const float userScaleY, const float color[4]) const;
     //void RenderText(const float x, const float y, const float userScaleX, 
     //    const float userScaleY);
 private:
@@ -24,6 +32,12 @@ private:
     // It is a tad shady, but keep an eye on build warnings about incompatible types and you
     // should be fine.
     unsigned int _textureId;
+
+    // the atlas needs access to a vertex buffer
+    // Note: Let the atlas make one.  The FreeType encapsulation could do this, but I am hesitant
+    // to make a buffer object that would be used by potentially multiple atlases, so let the 
+    // atlas make its own.
+    unsigned int _vboId;
 
     // which sampler to use (0 - GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS (??you sure??)
     // Note: Technically it is a GLint, but is simple int here for the same reason 
@@ -55,5 +69,14 @@ private:
         float tx;	// x offset of glyph in texture coordinates (S on range [0.0,1.0])
         float ty;	// y offset of glyph in texture coordinates (T on range [0.0,1.0])
     } _glyphCharInfo[128];
+
+    // the atlas needs to tell the fragment shader which texture sampler and texture color 
+    // (FreeType only provides alpha channel) to use, it does that via uniform, and to use 
+    // it the atlas should store the uniform's location
+    // Note: Actually a GLint.
+    // Also Note: The FreeType encapsulation is responsible for the texture atlas' shader 
+    // program, and it will provide these values.
+    int _uniformTextSamplerLoc;
+    int _uniformTextColorLoc;
 };
 

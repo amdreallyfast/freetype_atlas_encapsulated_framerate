@@ -5,18 +5,44 @@
 // first.
 #include "glload/include/glload/gl_4_4.h"
 
+// Build note: Must be included after OpenGL code (in this case, glload).
+// Build note: Also need to link freeglut/lib/freeglutD.lib.  However, the linker will try to 
+// find "freeglut.lib" (note the lack of "D") instead unless the following preprocessor 
+// directives are set either here or in the source-building command line (VS has a
+// "Preprocessor" section under "C/C++" for preprocessor definitions).  This is true for every
+// source file that wants to use freeglut, so the source-building command line is a useful tool.
+// However, since this is bare bones and attempts to avoid any VS-specific project stuff or
+// solution stuff, I am taking the verbose path.
+#define FREEGLUT_STATIC
+#define _LIB
+#define FREEGLUT_LIB_PRAGMAS 0
+#include "freeglut/include/GL/freeglut.h"
+
 #include <algorithm>    // for std::max
 
-FreeTypeAtlas::FreeTypeAtlas(const FT_Face face, const int height)
+struct point {
+    GLfloat x;
+    GLfloat y;
+    GLfloat s;
+    GLfloat t;
+};
+
+FreeTypeAtlas::FreeTypeAtlas(const int uniformTextSamplerLoc, const int uniformTextColorLoc) :
+    _uniformTextSamplerLoc(uniformTextSamplerLoc),
+    _uniformTextColorLoc(uniformTextColorLoc)
 {
     // clear out the character memory to all 0s (standard practice for arrays)
     memset(_glyphCharInfo, 0, sizeof(_glyphCharInfo));
+}
 
-    // set font height to 48 pixels
+bool FreeTypeAtlas::Init(const FT_Face face, const int fontPixelHeightSize)
+{
+
+    // configure the font's size
     // Note: Setting the pixel width (middle argument) to 0 lets FreeType determine font width 
     // based on the provided height.
     // http://learnopengl.com/#!In-Practice/Text-Rendering
-    FT_Set_Pixel_Sizes(face, 0, height);
+    FT_Set_Pixel_Sizes(face, 0, fontPixelHeightSize);
 
     // save some dereferencing
     FT_GlyphSlot glyph = face->glyph;
@@ -179,11 +205,11 @@ FreeTypeAtlas::FreeTypeAtlas(const FT_Face face, const int height)
     glTexImage2D(GL_TEXTURE_2D, level, internalFormat, atlasPixelWidth, atlasPixelHeight,
         border, providedFormat, providedFormatDataType, 0);
 
-    // tell the frag shader which texture sampler to use
-    // ??need to do this now or is it more appropriate to wait until render time??
+    // tell the frag shader which texture sampler to use before loading the texture info
+    // ??necessary??
     glActiveTexture(GL_TEXTURE0);
     _textureSamplerId = 0;
-    glUniform1i(gUniformTextSamplerLoc, _textureSamplerId);
+    glUniform1i(_uniformTextSamplerLoc, _textureSamplerId);
 
     // ??the heck is this??
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
@@ -272,15 +298,29 @@ FreeTypeAtlas::FreeTypeAtlas(const FT_Face face, const int height)
         rowPixelHeight = std::max(rowPixelHeight, glyph->bitmap.rows);
         offsetX += glyph->bitmap.width + 1;
     }
+
+    // create the vertex buffer that will be used to create quads as a base for the FreeType 
+    // glyph textures
+    glGenBuffers(1, &_vboId);
+    if (_vboId == -1)
+    {
+        fprintf(stderr, "could not generate vertex buffer object\n");
+        return false;
+    }
+
+    // no problems initializing atlas (I hope)
+    return true;
 }
 
 FreeTypeAtlas::~FreeTypeAtlas()
 {
     glDeleteTextures(1, &_textureId);
+    glDeleteBuffers(1, &_vboId);
 }
 
 // x and y are screen coordinates (each on the range [-1,+1])
-void FreeTypeAtlas::RenderChar(const char c, const float x, const float y, const float userScaleX, const float userScaleY)
+void FreeTypeAtlas::RenderChar(const char c, const float x, const float y, const float userScaleX, 
+    const float userScaleY, const float color[4]) const
 {
     // the text will be drawn, in part, via a manipulation of pixel alpha values, and apparently
     // OpenGL's blending does this
@@ -289,7 +329,10 @@ void FreeTypeAtlas::RenderChar(const char c, const float x, const float y, const
 
     // bind the texture that contains the atlas and tell OpenGL 
     glBindTexture(GL_TEXTURE_2D, _textureId);
-    glUniform1i(gUniformTextSamplerLoc, _textureSamplerId);
+    glUniform1i(_uniformTextSamplerLoc, _textureSamplerId);
+
+    // use the user-provided color
+    glUniform4fv(_uniformTextColorLoc, 1, color);
 
     // set the 
     // 2 floats per screen coord, 2 floats per texture coord, so 1 variable will do
@@ -315,7 +358,7 @@ void FreeTypeAtlas::RenderChar(const char c, const float x, const float y, const
     // begs for a silent bug.  A lot of OpenGL code does not clean up the buffer bindings at the 
     // end of the draw call (why unbind if you're just going to bind another in a moment 
     // anyway?), and in doing so this error might be swallowed.  
-    glBindBuffer(GL_ARRAY_BUFFER, gVbo);
+    glBindBuffer(GL_ARRAY_BUFFER, _vboId);
 
     // screen coordinates first
     // Note: 2 floats starting 0 bytes from set start.

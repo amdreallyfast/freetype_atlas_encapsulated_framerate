@@ -6,7 +6,11 @@
 #include <ft2build.h>
 #include FT_FREETYPE_H  // also defined relative to "freetype-2.6.1/include/"
 
+// because the FreeType encapsulation contains info necessary to create the atlas
+#include "FreeTypeAtlas.h"
+
 #include <string>
+#include <memory>   // for the shared pointer
 
 class FreeTypeEncapsulate
 {
@@ -14,9 +18,18 @@ public:
     FreeTypeEncapsulate();
     ~FreeTypeEncapsulate();
 
-    bool Init(const std::string &vertShaderPath, const std::string &fragShaderPath);
+    // takes: file path relative to solution directory
+    // returns: shader program ID if initialization successful, otherwise 0
+    int Init(const std::string &trueTypeFontFilePath, 
+        const std::string &vertShaderPath, const std::string &fragShaderPath);
+
+    // the shared pointer will encapsulate the atlas' pointer and clean up after it is 
+    // unecessary, and it is const so that the user can't even try to re-initialize it
+    const std::shared_ptr<FreeTypeAtlas> GenerateAtlas(const int fontSize);
 
 private:
+    bool _haveInitialized;
+
     FT_Library _ftLib;  // move to a "FreeTypeContainment" class
     FT_Face _ftFace;    // move to a "FreeTypeContainment" class
 
@@ -36,6 +49,4 @@ private:
     unsigned int _programId;
     int _uniformTextSamplerLoc;   // uniform location within program
     int _uniformTextColorLoc;     // uniform location within program
-    unsigned int _vbo;
-
 };
