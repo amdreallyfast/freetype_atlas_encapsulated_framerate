@@ -37,7 +37,6 @@ FreeTypeAtlas::FreeTypeAtlas(const int uniformTextSamplerLoc, const int uniformT
 
 bool FreeTypeAtlas::Init(const FT_Face face, const int fontPixelHeightSize)
 {
-
     // configure the font's size
     // Note: Setting the pixel width (middle argument) to 0 lets FreeType determine font width 
     // based on the provided height.
@@ -75,6 +74,8 @@ bool FreeTypeAtlas::Init(const FT_Face face, const int fontPixelHeightSize)
     // bytes, which should be sufficient to support rather old video or just incapable video 
     // hardware.  A max size of 1024 bytes means that a 2D texture can 1024x1024 bytes, or 
     // 1024x512 bytes, or 2x1024 (yes, 2 bytes), and it would be okay.  
+    GLint maxTextureSizeBytes;
+    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maxTextureSizeBytes);
 
     // for FreeType fonts under default rendering, 1 pixel == 1 byte
     // Note: FreeType 2 (the header indicates that I am using 2.6.1 as of 3-29-2016) does not 
@@ -91,9 +92,6 @@ bool FreeTypeAtlas::Init(const FT_Face face, const int fontPixelHeightSize)
     // there is one 8-bit byte per pixel.  Keep this in mind when calculating the texture size.  
     // http://www.freetype.org/freetype2/docs/reference/ft2-base_interface.html#FT_Render_Mode
 
-    //DO THINGS WITH THIS
-    GLint max_texture_size;
-    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &max_texture_size);
 
     // build up the dimensions for the atlas, then make a texture for it later
     // Note: Not only are the dimensions needed before allocating space for the texture, but in 
@@ -122,12 +120,14 @@ bool FreeTypeAtlas::Init(const FT_Face face, const int fontPixelHeightSize)
         // start a new row
         // Note: Remember that FreeType provides an 8-bit alpha bitmap, so in this particular 
         // application, each pixel is 1 byte and pixels and bytes can be compared.
-        // Also Also Note: The "+1" is a 1-pixel "gutter" between characters in case some kind 
-        // of float rounding at render time (specifically, calculating texture coordinates S and 
+        // Also Note: The "+1" is a 1-pixel "gutter" between characters in case some kind of 
+        // float rounding at render time (specifically, calculating texture coordinates S and 
         // T, each by definition on the range [0.0,1.0]) goes 1 pixel further than it should.  
         // This 1-pixel "gutter" prevents that 1 pixel from infringing on the edges of another 
         // glyph.
-        if ((rowPixelWidth + glyph->bitmap.width + 1) >= 1024)
+        // Also Also Note: The unsigned integer cast is to prevent a compiler warning.  Because 
+        // I'm picky that way :).
+        if ((rowPixelWidth + glyph->bitmap.width + 1) >= (unsigned int)maxTextureSizeBytes)
         {
             // if this row is longer than any previous row, expand the atlas
             // Note: Since this only happens if the next glyph will make the row exceed the max 
@@ -154,9 +154,9 @@ bool FreeTypeAtlas::Init(const FT_Face face, const int fontPixelHeightSize)
         rowPixelHeight = std::max(rowPixelHeight, glyph->bitmap.rows);
     }
 
-    // when the above loop exits, it will have adjusted the variables for row width and height, 
-    // but not for atlas width and height, so take care of the atlas width and height the same 
-    // way as it happens when a new row is created
+    // when the above loop exits, it will have adjusted the variables for the last row's width 
+    // and height, but not for atlas width and height, so take care of the atlas width and 
+    // height the same way as it happens when a new row is created
     atlasPixelWidth = std::max(atlasPixelWidth, rowPixelWidth);
     atlasPixelHeight += rowPixelHeight;
 
@@ -238,9 +238,11 @@ bool FreeTypeAtlas::Init(const FT_Face face, const int fontPixelHeightSize)
             continue;
         }
 
-        // this is the same dea as the "atlas pixel width/height" condition when determining 
+        // this is the same idea as the "atlas pixel width/height" condition when determining 
         // atlas size, but now it deals with the byte offsets into the loaded texture
-        if ((offsetX + glyph->bitmap.width + 1) >= 1024)
+        // Note: The unsigned integer cast is to prevent a compiler warning.  Because I'm picky
+        // that way :).
+        if ((offsetX + glyph->bitmap.width + 1) >= (unsigned int)maxTextureSizeBytes)
         {
             // vertical offset jumps to next row
             offsetY += rowPixelHeight;
@@ -319,8 +321,8 @@ FreeTypeAtlas::~FreeTypeAtlas()
 }
 
 // x and y are screen coordinates (each on the range [-1,+1])
-void FreeTypeAtlas::RenderChar(const char c, const float x, const float y, const float userScaleX, 
-    const float userScaleY, const float color[4]) const
+void FreeTypeAtlas::RenderChar(const char c, const float posScreenCoord[2], 
+    const float userScale[2], const float color[4]) const
 {
     // the text will be drawn, in part, via a manipulation of pixel alpha values, and apparently
     // OpenGL's blending does this
@@ -388,16 +390,16 @@ void FreeTypeAtlas::RenderChar(const char c, const float x, const float y, const
     // character would likely look like it isn't centered.  The TrueType format provides info 
     // that FreeType extracts so that I can figure out where to draw the texture so that it 
     // LOOKS like the glyph ('g', c, ';', etc.) "starts" at the user-provided x and y.
-    float scaledGlyphLeft = _glyphCharInfo[c].bl * oneOverScreenPixelWidth * userScaleX;
-    float scaledGlyphWidth = _glyphCharInfo[c].bw * oneOverScreenPixelWidth * userScaleX;
-    float scaledGlyphTop = _glyphCharInfo[c].bt * oneOverScreenPixelHeight * userScaleY;
-    float scaledGlyphHeight = _glyphCharInfo[c].bh * oneOverScreenPixelHeight * userScaleY;
+    float scaledGlyphLeft = _glyphCharInfo[c].bl * oneOverScreenPixelWidth * userScale[0];
+    float scaledGlyphWidth = _glyphCharInfo[c].bw * oneOverScreenPixelWidth * userScale[0];
+    float scaledGlyphTop = _glyphCharInfo[c].bt * oneOverScreenPixelHeight * userScale[1];
+    float scaledGlyphHeight = _glyphCharInfo[c].bh * oneOverScreenPixelHeight * userScale[1];
 
     // could these be condensed into the "scaled glyph" calulations? yes, but this is clearer to 
     // me
-    float screenCoordLeft = x - scaledGlyphLeft;
+    float screenCoordLeft = posScreenCoord[0] - scaledGlyphLeft;
     float screenCoordRight = screenCoordLeft + scaledGlyphWidth;
-    float screenCoordTop = y + scaledGlyphTop;
+    float screenCoordTop = posScreenCoord[1] + scaledGlyphTop;
     float screenCoordBottom = screenCoordTop - scaledGlyphHeight;
 
     // unlike my project "freeglut_glload_render_freetype", which loads glyphs into their own 
@@ -446,6 +448,132 @@ void FreeTypeAtlas::RenderChar(const char c, const float x, const float y, const
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
     // cleanup
+    glBindTexture(GL_TEXTURE_2D, 0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glDisable(GL_BLEND);
+    glBlendFunc(0, 0);
+}
+
+// see RenderChar(...) for more detail
+void FreeTypeAtlas::RenderText(const std::string &str, const float posScreenCoord[2],
+    const float userScale[2], const float color[4]) const
+{
+    // the text will be drawn, in part, via a manipulation of pixel alpha values, and apparently
+    // OpenGL's blending does this
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    // bind the texture that contains the atlas and tell OpenGL 
+    glBindTexture(GL_TEXTURE_2D, _textureId);
+    glUniform1i(_uniformTextSamplerLoc, _textureSamplerId);
+
+    // use the user-provided color
+    glUniform4fv(_uniformTextColorLoc, 1, color);
+
+    // set the 
+    // 2 floats per screen coord, 2 floats per texture coord, so 1 variable will do
+    GLint itemsPerVertexAttrib = 2;
+
+    // how many bytes to "jump" until the next instance of the attribute
+    GLint bytesPerVertex = 4 * sizeof(float);
+
+    // this is cast as a pointer due to OpenGL legacy stuff
+    GLint bufferStartByteOffset = 0;
+
+    // shorthand for "vertex attribute index"
+    GLint vai = 0;
+
+    // need to create 1 quad (2 triangles) for each character, each of which occupies a 
+    // rectangle in the atlas texture
+    // Note: MUST bind BEFORE setting vertex attribute array pointers or it WILL crash.  
+    glBindBuffer(GL_ARRAY_BUFFER, _vboId);
+
+    // screen coordinates first
+    // Note: 2 floats starting 0 bytes from set start.
+    glEnableVertexAttribArray(vai);
+    glVertexAttribPointer(vai, itemsPerVertexAttrib, GL_FLOAT, GL_FALSE, bytesPerVertex,
+        (void *)bufferStartByteOffset);
+
+    // texture coordinates second
+    // Note: My approach (a common one) is to use the same kind and number of items for each
+    // vertex attribute, so this array's settings are nearly identical to the screen 
+    // coordinate's, the only difference being an offset (screen coordinate bytes first, then
+    // texture coordinate byte; see the box).
+    vai++;
+    bufferStartByteOffset += itemsPerVertexAttrib * sizeof(float);
+    glEnableVertexAttribArray(vai);
+    glVertexAttribPointer(vai, itemsPerVertexAttrib, GL_FLOAT, GL_FALSE, bytesPerVertex,
+        (void *)bufferStartByteOffset);
+
+    // X and Y screen coordinates are on the range [-1,+1]
+    float oneOverScreenPixelWidth = 2.0f / glutGet(GLUT_WINDOW_WIDTH);
+    float oneOverScreenPixelHeight = 2.0f / glutGet(GLUT_WINDOW_HEIGHT);
+
+    // the glyph origin will advance for each successive character
+    // Ex: If the string were "ABC", then "B" draws further right than "A", and "C" further right
+    // than "B".
+    float glyphOriginX = posScreenCoord[0];
+    float glyphOriginY = posScreenCoord[1];
+
+    // each character has 6 points (see RenderChar(...) for more detailed comment)
+    point *glyphBoxes = new point[6 * str.length()];
+
+    // run through each character, gather all the vertex and other info together, and draw it 
+    // all in one go
+    for (size_t charIndex = 0; charIndex < str.length(); charIndex++)
+    {
+        char c = str[charIndex];
+
+        // figure out where the texture needs to start drawing in screen coordinates
+        float scaledGlyphLeft = _glyphCharInfo[c].bl * oneOverScreenPixelWidth * userScale[0];
+        float scaledGlyphWidth = _glyphCharInfo[c].bw * oneOverScreenPixelWidth * userScale[0];
+        float scaledGlyphTop = _glyphCharInfo[c].bt * oneOverScreenPixelHeight * userScale[1];
+        float scaledGlyphHeight = _glyphCharInfo[c].bh * oneOverScreenPixelHeight * userScale[1];
+
+        // could these be condensed into the "scaled glyph" calulations? yes, but this is clearer to 
+        // me
+        float screenCoordLeft = glyphOriginX - scaledGlyphLeft;
+        float screenCoordRight = screenCoordLeft + scaledGlyphWidth;
+        float screenCoordTop = glyphOriginY + scaledGlyphTop;
+        float screenCoordBottom = screenCoordTop - scaledGlyphHeight;
+
+        // unlike my project "freeglut_glload_render_freetype", which loads glyphs into their own 
+        // textures one at a time (crude, but conveys basics), I can no longer use the whole texture 
+        // and must use the offset info that was stored when the atlas was created
+        // Note: Remember that textures use their own 2D coordinate system (S,T) to avoid confusion 
+        // with screen coordinates (X,Y).
+        float sLeft = _glyphCharInfo[c].tx;//0.0f;
+        float sRight = _glyphCharInfo[c].tx + _glyphCharInfo[c].nbw;//1.0f;
+        float tBottom = _glyphCharInfo[c].ty;
+        float tTop = _glyphCharInfo[c].ty + _glyphCharInfo[c].nbh;
+
+        // OpenGL draws triangles, but a rectangle needs to be drawn, so specify the four corners
+        // of the box in such a way that GL_LINE_STRIP will draw the two triangle halves of the 
+        // box
+        point box[4] = {
+            { screenCoordLeft, screenCoordBottom, sLeft, tTop },
+            { screenCoordRight, screenCoordBottom, sRight, tTop },
+            { screenCoordLeft, screenCoordTop, sLeft, tBottom },
+            { screenCoordRight, screenCoordTop, sRight, tBottom }
+        };
+
+        // the vertex buffer's size is dependent upon string length, and in this demo that value is 
+        // not constant, so the vertex data needs to be completely refreshed every draw call, and 
+        // therefore glBufferData(...) is used instead of glBufferSubData(...) 
+        glBufferData(GL_ARRAY_BUFFER, sizeof(box), box, GL_DYNAMIC_DRAW);
+
+        // all that so that this one function call will work
+        // Note: Start at vertex 0 (that is, start at element 0 in the GL_ARRAY_BUFFER) and draw 
+        // 4 of them.
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+        // advance glyph origin for the next character 
+        glyphOriginX += _glyphCharInfo[c].ax * oneOverScreenPixelWidth;
+        glyphOriginY += _glyphCharInfo[c].ay * oneOverScreenPixelHeight;
+    }
+
+    // cleanup
+    delete[] glyphBoxes;
     glBindTexture(GL_TEXTURE_2D, 0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glDisable(GL_BLEND);

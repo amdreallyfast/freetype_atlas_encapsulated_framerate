@@ -6,6 +6,8 @@
 #include <ft2build.h>
 #include FT_FREETYPE_H  // also defined relative to "freetype-2.6.1/include/"
 
+#include <string>
+
 class FreeTypeAtlas
 {
 public:
@@ -20,11 +22,13 @@ public:
     // [-0.999f, +0.999f], and note that the range is technically [-1,+1] but in practice an X
     // of -1 will not render
 
-    //TODO: change to pos[2], userScale[2], color[3]; also change color's glUniform4fv(...) to glUniform3fv(...) to match; also change uniform value and use in shader to match float[3]
-    void RenderChar(const char c, const float x, const float y, const float userScaleX, 
-        const float userScaleY, const float color[4]) const;
-    //void RenderText(const float x, const float y, const float userScaleX, 
-    //    const float userScaleY);
+    // render a single char (demonstrates most simple drawing of a single char)
+    void RenderChar(const char c, const float posScreenCoord[2], const float userScale[2],
+        const float color[4]) const;
+
+    // render a string (demonstrates use of glyph "advance" value between characters)
+    void RenderText(const std::string &str, const float posScreenCoord[2], 
+        const float userScale[2], const float color[4]) const;
 private:
     // have to reference it on every draw call, so keep it around
     // Note: It is actually a GLuint, which is a typedef of "unsigned int", but I don't want to 

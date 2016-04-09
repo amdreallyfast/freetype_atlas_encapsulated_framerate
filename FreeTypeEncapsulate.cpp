@@ -42,7 +42,7 @@ int FreeTypeEncapsulate::Init(const std::string &trueTypeFontFilePath,
     // Note: FT_New_Face(...) also returns an FT_Error.
     if (FT_New_Face(_ftLib, trueTypeFontFilePath.c_str(), 0, &_ftFace))
     {
-        fprintf(stderr, "Could not open font '%s'\n", trueTypeFontFilePath);
+        fprintf(stderr, "Could not open font '%s'\n", trueTypeFontFilePath.c_str());
         return false;
     }
 
