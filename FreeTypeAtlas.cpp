@@ -19,6 +19,7 @@
 #include "freeglut/include/GL/freeglut.h"
 
 #include <algorithm>    // for std::max
+#include <vector>       // for memory safe allocation of coordinate info for each glyph
 
 struct point {
     GLfloat x;
@@ -515,8 +516,11 @@ void FreeTypeAtlas::RenderText(const std::string &str, const float posScreenCoor
     float glyphOriginX = posScreenCoord[0];
     float glyphOriginY = posScreenCoord[1];
 
-    // each character has 6 points (see RenderChar(...) for more detailed comment)
-    point *glyphBoxes = new point[6 * str.length()];
+    // set aside memory so that screen coordinate and texture coorninate info can be drawn with a
+    // single draw call
+    // Note: Each character has 4 points.  See comments on "box" in RenderChar(...) for more 
+    // detailed comments.
+    std::vector<point> glyphBoxes(4 * str.length());
 
     // run through each character, gather all the vertex and other info together, and draw it 
     // all in one go
@@ -557,23 +561,28 @@ void FreeTypeAtlas::RenderText(const std::string &str, const float posScreenCoor
             { screenCoordRight, screenCoordTop, sRight, tBottom }
         };
 
-        // the vertex buffer's size is dependent upon string length, and in this demo that value is 
-        // not constant, so the vertex data needs to be completely refreshed every draw call, and 
-        // therefore glBufferData(...) is used instead of glBufferSubData(...) 
-        glBufferData(GL_ARRAY_BUFFER, sizeof(box), box, GL_DYNAMIC_DRAW);
-
-        // all that so that this one function call will work
-        // Note: Start at vertex 0 (that is, start at element 0 in the GL_ARRAY_BUFFER) and draw 
-        // 4 of them.
-        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        // copy the info on each of the four corners into the array that was created to store 
+        // them
+        glyphBoxes[(charIndex * 4) + 0] = box[0];
+        glyphBoxes[(charIndex * 4) + 1] = box[1];
+        glyphBoxes[(charIndex * 4) + 2] = box[2];
+        glyphBoxes[(charIndex * 4) + 3] = box[3];
 
         // advance glyph origin for the next character 
         glyphOriginX += _glyphCharInfo[c].ax * oneOverScreenPixelWidth;
         glyphOriginY += _glyphCharInfo[c].ay * oneOverScreenPixelHeight;
     }
 
+    // the vertex buffer's size is dependent upon string length, and in this demo that value is 
+    // not constant, so the vertex data needs to be completely refreshed every draw call, and 
+    // therefore glBufferData(...) is used instead of glBufferSubData(...) 
+    glBufferData(GL_ARRAY_BUFFER, glyphBoxes.size() * sizeof(point), glyphBoxes.data(), 
+        GL_DYNAMIC_DRAW);
+
+    // all that so that this one function call will work
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, glyphBoxes.size());
+
     // cleanup
-    delete[] glyphBoxes;
     glBindTexture(GL_TEXTURE_2D, 0);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glDisable(GL_BLEND);
