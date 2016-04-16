@@ -9,7 +9,8 @@ uniform vec4 textureColor;
 out vec4 finalColor;
 
 void main(void) {
-    // the texture only provides us with alpha values, so only draw out the .a
-    finalColor = vec4(1, 1, 1, texture2D(textureSamplerId, texturePos).a) * textureColor;
+    // the texture only provides us with alpha values, but that value was stuck into the red byte
+    // because GL_ALPHA is deprecated, so now put the red's byte into the alpha channel
+    finalColor = vec4(1, 1, 1, texture2D(textureSamplerId, texturePos).r) * textureColor;
 }
     

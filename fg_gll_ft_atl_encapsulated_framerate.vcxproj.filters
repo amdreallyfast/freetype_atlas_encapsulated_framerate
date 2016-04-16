@@ -32,12 +32,18 @@
     <ClCompile Include="FreeTypeEncapsulate.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Stopwatch.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="FreeTypeEncapsulate.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="FreeTypeAtlas.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Stopwatch.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

@@ -175,7 +175,12 @@ bool FreeTypeAtlas::Init(const FT_Face face, const int fontPixelHeightSize)
     // Note: That is, it should store [alpha, alpha, alpha, etc.].  If GL_RGBA (red, green, 
     // blue, and alpha) were stated instead, then OpenGL would store the data as 
     // [red, green, blue, alpha, red, green, blue, alpha, red, green, blue, alpha, etc.].
-    GLint internalFormat = GL_ALPHA;
+    // Also Note: When writing this program (4-16-2016), GL_ALPHA is a deprecated value to 
+    // provideto glTexImage2D(...)'s format (it used to work, but now it doesn't), and the red
+    // channel is the only one that allows for a single byte
+    // (see https://www.opengl.org/sdk/docs/man/html/glTexImage2D.xhtml), so just shove the 
+    // alpha value into the red's byte.
+    GLint internalFormat = GL_RED;
 
     // tell OpenGL that the data is being provided as alpha values
     // Note: Similar to "internal format", but this is telling OpenGL how the data is being
@@ -184,7 +189,8 @@ bool FreeTypeAtlas::Init(const FT_Face face, const int fontPixelHeightSize)
     // another while "internal format" remains the same in order to provide consistency 
     // after file loading.  In this case though, "internal format" and "provided format"
     // are the same.
-    GLint providedFormat = GL_ALPHA;
+    // Also Note: GL_ALPHA is deprecated, so make due with the red byte.
+    GLint providedFormat = GL_RED;
 
     // knowing the provided format is great and all, but OpenGL is getting the data in the 
     // form of a void pointer, so it needs to be told if the data is a singed byte, unsigned 
@@ -255,8 +261,8 @@ bool FreeTypeAtlas::Init(const FT_Face face, const int fontPixelHeightSize)
 
         // send the glyph's bitmap to its own place in the atlas' texture
         GLint level = 0;
-        GLint internalFormat = GL_ALPHA;
-        GLint providedFormat = GL_ALPHA;
+        GLint internalFormat = GL_RED;
+        GLint providedFormat = GL_RED;
         GLenum providedFormatDataType = GL_UNSIGNED_BYTE;
         GLint border = 0;
         glTexSubImage2D(GL_TEXTURE_2D, level, offsetX, offsetY, glyph->bitmap.width,

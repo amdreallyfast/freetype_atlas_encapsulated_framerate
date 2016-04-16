@@ -42,15 +42,16 @@
 
 #include "FreeTypeEncapsulate.h"
 #include "FreeTypeAtlas.h"
+#include "Stopwatch.h"
 
 
 // needs initialization
 static FreeTypeEncapsulate gFt;
 
-static GLuint gProgramId;
+static GLuint gTextTextureProgramId;
 static std::shared_ptr<FreeTypeAtlas> gAtlasPtr;
 
-
+static Timing::Stopwatch gTimer;
 
 // for making program from shader collection
 #include <string>
@@ -136,35 +137,51 @@ Creator:
 -----------------------------------------------------------------------------------------------*/
 void display()
 {
-    glUseProgram(gProgramId);
+    glUseProgram(gTextTextureProgramId);
 
     // clear existing data
     glClearColor(0.2f, 0.2f, 0.2f, 0.0f);   // make background a dull grey
     glClearDepth(1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+    // only report frame rate every second
+    static int elapsedFrames = 0;
+    static double elapsedTime = 0.0;
+    static double frameRate = 0.0;
+    elapsedFrames++;
+    elapsedTime += gTimer.lap();
+    if (elapsedTime > 1.0)
+    {
+        frameRate = (double)elapsedFrames / elapsedTime;
+        
+        // reset the counters
+        elapsedFrames = 0;
+        elapsedTime = 0.0;
+    }
+
     // the shader for this program uses a vec4 (implicit content type is float) for color, so 
     // specify text color as a 4-float array and give it to shader 
     // Note: Even though color only needs RGB, use an alpha value as well in case some text
     // transparency is desired.
     GLfloat color[4] = { 0.5f, 0.5f, 0.0f, 1.0f };
-
+    char str[8];
+    sprintf(str, "%.2lf", frameRate);
     float xy[2] = { -0.99f, -0.99f };
     float scaleXY[2] = { 1.0f, 1.0f };
-    //gAtlasPtr->RenderChar('{', xy, scaleXY, color);
-    gAtlasPtr->RenderText("{123}", xy, scaleXY, color);
+    //gAtlasPtr->RenderText("{123}", xy, scaleXY, color);
+    gAtlasPtr->RenderText(str, xy, scaleXY, color);
 
-    xy[0] = -0.5f;
-    xy[1] = -0.5f;
-    scaleXY[0] = 2.0f;
-    scaleXY[1] = 2.0f;
-    gAtlasPtr->RenderChar('L', xy, scaleXY, color);
+    //xy[0] = -0.5f;
+    //xy[1] = -0.5f;
+    //scaleXY[0] = 2.0f;
+    //scaleXY[1] = 2.0f;
+    //gAtlasPtr->RenderChar('L', xy, scaleXY, color);
 
-    xy[0] = +0.5f;
-    xy[1] = -0.23f;
-    scaleXY[0] = 4.0f;
-    scaleXY[1] = 4.0f;
-    gAtlasPtr->RenderChar('p', xy, scaleXY, color);
+    //xy[0] = +0.5f;
+    //xy[1] = -0.23f;
+    //scaleXY[0] = 4.0f;
+    //scaleXY[1] = 4.0f;
+    //gAtlasPtr->RenderChar('p', xy, scaleXY, color);
 
 
     // tell the GPU to swap out the displayed buffer with the one that was just rendered
@@ -304,9 +321,11 @@ bool init(int argc, char *argv[])
         printf("Your OpenGL version is %i, %i. You must have at least OpenGL %i.%i to run this tutorial.\n",
             glload::GetMajorVersion(), glload::GetMinorVersion(), glMajorVersion, glMinorVersion);
         glutDestroyWindow(window);
-        return 0;
+        return false;
     }
-    else if (glext_ARB_debug_output)
+
+    // no problems initializing glload, so now register the debugging function (if necessary)
+    if (glext_ARB_debug_output)
     {
         // condition will be true if GLUT_DEBUG is a context flag
         glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB);
@@ -325,8 +344,8 @@ bool init(int argc, char *argv[])
     glDepthFunc(GL_LEQUAL);
     glDepthRange(0.0f, 1.0f);
 
-    gProgramId = gFt.Init("FreeSans.ttf", "shader.vert", "shader.frag");
-    if (0 == gProgramId)
+    gTextTextureProgramId = gFt.Init("FreeSans.ttf", "shader.vert", "shader.frag");
+    if (0 == gTextTextureProgramId)
     {
         fprintf(stderr, "FreeType could not be initialized\n");
         return false;
@@ -339,6 +358,14 @@ bool init(int argc, char *argv[])
         fprintf(stderr, "FreeType atlas could not be initialized\n");
         return false;
     }
+
+    // initialize the timer, which will be used for frame rate calculations
+    if (!gTimer.initialize())
+    {
+        fprintf(stderr, "Stopwatch could not initialized\n");
+        return false;
+    }
+    gTimer.start();
 
     // all went well
     return true;

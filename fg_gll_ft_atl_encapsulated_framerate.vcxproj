@@ -150,10 +150,12 @@
     <ClCompile Include="FreeTypeAtlas.cpp" />
     <ClCompile Include="FreeTypeEncapsulate.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="Stopwatch.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="FreeTypeAtlas.h" />
     <ClInclude Include="FreeTypeEncapsulate.h" />
+    <ClInclude Include="Stopwatch.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
