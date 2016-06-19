@@ -1,7 +1,7 @@
 #pragma once
 
 // there doesn't seem to be any way out of including all of FreeType without some shady forward 
-// declarations of FreeType interna structures
+// declarations of FreeType internal structures
 // Note: FreeType has a single header for everything.  This is evil.
 #include <ft2build.h>
 #include FT_FREETYPE_H  // also defined relative to "freetype-2.6.1/include/"

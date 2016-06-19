@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 14
 VisualStudioVersion = 14.0.23107.0
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "fg_gll_ft_atl_encapsulated_framerate", "fg_gll_ft_atl_encapsulated_framerate.vcxproj", "{76BCB793-0241-443D-AD0F-C1B2F6C33F9B}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "freetype_atlas_encapsulated_framerate", "freetype_atlas_encapsulated_framerate.vcxproj", "{76BCB793-0241-443D-AD0F-C1B2F6C33F9B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
